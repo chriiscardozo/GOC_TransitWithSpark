@@ -1,0 +1,122 @@
+<html>
+  <head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" type="image/png" href="logo.png" />
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+  </head>
+  <style>
+	#header {width: 100%; height: 10%; text-align: center; display: inline;}
+	#map { width: 100%; height: 60%; }
+  </style>
+
+  <script src="https://code.jquery.com/jquery-3.1.1.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js" integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
+  <script src="markerclusterer.js"></script>
+
+  <body>
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+      <a class="navbar-brand" href="#">GOColetivo</a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarsExampleDefault">
+        <ul class="navbar-nav mr-auto">
+          <li class="nav-item active">
+            <a class="nav-link" href="#">Home <span class="sr-only"></span></a>
+          </li>
+      </div>
+    </nav>
+
+    <div class="container">
+
+      <div class="starter-template">
+        <h1>GOColetivo - Condições das Vias no Rio de Janeiro</h1>
+        <p class="lead">O GOColetivo permite a visualização das condições das vias na cidade do Rio de Janeiro. O cálculo é feito baseado nos dados públicos de GPS da cidade.</p>
+	<p> Disciplina Tóp. Esp. em BD I (Spark) / Professor: Alexandre Assis<br>Autor: Christian Cardozo</p>
+	<span class="badge badge-success">Bom (> 0.6)</span><span class="badge badge-warning">Regular (entre 0.4 e  0.6)</span><span class="badge badge-danger">Ruim (< 0.4)</span>
+      </div>
+      <div>
+	<div id="map"></div>
+      </div>
+    </div>
+
+    <script>
+
+      function createPolygon(path, cor) {
+        var polygon = new google.maps.Polygon({
+          path : path,
+          strokeOpacity : 1,
+          strokeColor : cor
+        });
+
+        var lastPath = null,
+            lastCenter = null;
+        polygon.getPosition = function() {
+          var path = this.getPath();
+          if (lastPath == path) {
+            return lastCenter;
+          }
+          lastPath = path;
+          var bounds = new google.maps.LatLngBounds();
+          path.forEach(function(latlng, i) {
+            bounds.extend(latlng);
+          });
+
+          lastCenter = bounds.getCenter()
+          return lastCenter;
+        };
+        return polygon;
+      }
+
+      function initMap() {
+        var map = new google.maps.Map(document.getElementById('map'), {
+          center: {lat: -22.861174, lng: -43.229232},
+          zoom: 13
+        });
+	var infowindow = new google.maps.InfoWindow();
+
+	function addInfoWindow(path,conteudo){
+	    google.maps.event.addListener(path, 'click', function(event){
+		infowindow.close(); // Close previously opened infowindow
+		infowindow.setContent(conteudo);
+		infowindow.open(map, path);
+	    });
+	}
+
+	$.getJSON("http://localhost/gocoletivo_server")
+		.done(function(data){
+			console.log(data.length);
+			polyList = [];
+			for (var i = 0; i < data.length; i++) {
+				obj = data[i];
+				var coordenadas = [];
+				obj.f1.pontos.forEach(function(v){
+					coordenadas.push({lat: v.f2, lng: v.f1})
+				});
+				var cor = '#FF0000';
+				if(obj.f1.velocidade_media/obj.f1.limite >= 0.3) cor = '#FFA500';
+				if(obj.f1.velocidade_media/obj.f1.limite >= 0.6) cor = '#00FF00';
+				//var path = new google.maps.Polyline({path: coordenadas, geodesic: true,strokeColor: cor,strokeOpacity: 1.0,strokeWeight: 4});
+				var path = createPolygon(coordenadas, cor);
+				polyList.push(path);
+
+				var conteudo = "<b>" + obj.f1.nome + "</b><br/>Velocidade média: " + obj.f1.velocidade_media + "<br/>Limite: " + obj.f1.limite;
+				addInfoWindow(path,conteudo);
+
+			}
+			var mcOptions = {
+			    gridSize: 40,
+			    minimumClusterSize: 40
+			};
+			var clusterer = new MarkerClusterer(map, polyList, mcOptions);
+		});
+      }
+
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD1Y1Ov3UsaDIkNqObcIssl1P2OBzfy5Js&callback=initMap"
+    async defer></script>
+  </body>
+</html>

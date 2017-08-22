@@ -1,0 +1,1 @@
+rm -r result/ crawler_data/ checkpoint/ tmp/ spark-warehouse/
